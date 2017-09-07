@@ -1,6 +1,7 @@
 import csv
 import os
-
+from sqlalchemy import create_engine
+from sqlalchemy import Table, Column, Integer, String, Float, MetaData
 
 class CSVDumpWriter:
 
@@ -87,3 +88,81 @@ class CSVDumpWriter:
                 for address in output.addresses:
                     self._address_writer.writerow([address])
                     self._rel_output_address_writer.writerow([a_b(tx.txid, output.index), address])
+
+class DBDumpWriter:
+
+    def __init__(self, engine):
+        self._engine = engine
+        self._metadata = MetaData()
+
+        self._blocks = Table('blocks', self._metadata,
+            Column('hash', String(64), primary_key=True),
+            Column('height', Integer),
+            Column('timestamp', Integer),
+        )
+
+        self._transactions = Table('transactions', self._metadata,
+            Column('txid', String(64), primary_key=True),
+            Column('coinbase', Integer)
+        )
+
+        self._outputs = Table('outputs', self._metadata,
+            Column('txid_n', String(64)),
+            Column('n', Integer),
+            Column('value', Float),
+            Column('type', String(64))
+        )
+
+        self._addresses = Table('addresses', self._metadata,
+            Column('address', String(64), primary_key=True)
+        )
+
+        self._rel_block_tx = Table('rel_block_tx', self._metadata,
+            Column('hash', String(64)),
+            Column('txid', String(64)),
+        )
+
+        self._rel_tx_output = Table('rel_tx_output', self._metadata,
+            Column('txid', String(64)),
+            Column('txid_n', String(64)),
+        )
+
+        self._rel_input = Table('rel_input', self._metadata,
+            Column('txid', String(64)),
+            Column('txid_n', String(64)),
+        )
+
+        self._rel_output_address = Table('rel_output_address', self._metadata,
+            Column('txid_n', String(64)),
+            Column('address', String(64)),
+        )
+
+        self._metadata.create_all(self._engine)
+
+    def __enter__(self):
+        # Do I need to do anything?
+        pass
+
+    def __exit__(self, type, value, traceback):
+        # Do I need to do anything?
+        pass
+
+    def write(self, block):
+        def a_b(a, b):
+            return '{}_{}'.format(a, b)
+
+        self._engine.execute(self._blocks.insert(), hash=block.hash, height=block.height, timestamp=block.timestamp)
+        for tx in block.transactions:
+            self._engine.execute(self._transactions.insert(), txid=tx.txid, coinbase=tx.is_coinbase())
+            self._engine.execute(self._rel_block_tx.insert(), hash=block.hash, txid=tx.txid)
+
+            if not tx.is_coinbase():
+                for input in tx.inputs:
+                    self._engine.execute(self._rel_input.insert(), txid=tx.txid, txid_n=a_b(input.output_reference['txid'], input.output_reference['vout']))
+
+            for output in tx.outputs:
+                self._engine.execute(self._outputs.insert(), txid_n=a_b(tx.txid, output.index), n=output.index, value=output.value, type=output.type)                
+                self._engine.execute(self._rel_tx_output.insert(), txid=tx.txid, txid_n=a_b(tx.txid, output.index))
+                for address in output.addresses:
+                    self._engine.execute(self._addresses.insert(), address=address)
+                    self._engine.execute(self._rel_output_address.insert(), txid_n=a_b(tx.txid, output.index), address=address)

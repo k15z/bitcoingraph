@@ -13,7 +13,7 @@ from bitcoingraph.blockchain import Blockchain
 from bitcoingraph import entities
 from bitcoingraph.graphdb import GraphController
 from bitcoingraph.helper import sort
-from bitcoingraph.writer import CSVDumpWriter
+from bitcoingraph.writer import CSVDumpWriter, DBDumpWriter
 
 logger = logging.getLogger('bitcoingraph')
 
@@ -125,7 +125,7 @@ class BitcoinGraph:
         """Return the current balance of this address."""
         return self.graph_db.get_unspent_bitcoins(address)
 
-    def export(self, start, end, output_path=None, plain_header=False, separate_header=True,
+    def export(self, start, end, engine=False, output_path=None, plain_header=False, separate_header=True,
                progress=None, deduplicate_transactions=True):
         """Export the blockchain into CSV files."""
         if output_path is None:
@@ -133,6 +133,7 @@ class BitcoinGraph:
 
         number_of_blocks = end - start + 1
         with CSVDumpWriter(output_path, plain_header, separate_header) as writer:
+            if engine: writer = DBDumpWriter(engine)
             for block in self.blockchain.get_blocks_in_range(start, end):
                 writer.write(block)
                 if progress:

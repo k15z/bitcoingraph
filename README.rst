@@ -3,7 +3,7 @@ graph.
 
 |Build Status|
 
-Prerequesites
+Prerequisites
 -------------
 
 Bitcoin Core setup and configuration

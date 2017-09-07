@@ -50,6 +50,7 @@ setup(
     # Package information
     packages=['bitcoingraph'],
     scripts=['scripts/bcgraph-export',
+             'scripts/bcgraph-export-db',
              'scripts/bcgraph-compute-entities',
              'scripts/bcgraph-synchronize'],
     platforms='any',
